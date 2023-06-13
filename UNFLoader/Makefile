@@ -18,14 +18,14 @@ else
 	DEPENDENCIES := -lncursesw -lftd2xx -lpthread -lrt 
 endif
 
-LINKER_OPTIONS := -Wl,-rpath /usr/local/lib
+LINKER_OPTIONS := -Wl,-rpath=/opt/crashsdk/lib
 CFLAGS=-D LINUX -D_XOPEN_SOURCE_EXTENDED -Wall -Wno-unknown-pragmas -O3 -std=c++11
 
 default: $(APP)
 
 $(APP): $(CODEOBJECTS) $(LIBOBJECTS)
 	@echo "Linking $@"
-	@$(CXX) $(CFLAGS) -o $(APP) $(CODEOBJECTS) $(LIBOBJECTS) $(DEPENDENCIES) $(LINKER_OPTIONS) -L/usr/local/lib
+	@$(CXX) $(CFLAGS) -o $(APP) $(CODEOBJECTS) $(LIBOBJECTS) $(DEPENDENCIES) $(LINKER_OPTIONS) -L/opt/crashsdk/lib
 
 %.o: %.cpp
 	@echo "Compiling $<"
