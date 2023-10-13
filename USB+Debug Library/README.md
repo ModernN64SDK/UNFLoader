@@ -6,6 +6,10 @@ This folder contains both the USB and debug library that works in tandem with UN
 ### Table of Contents
 * [How to use the USB library](#how-to-use-the-usb-library)
 * [How to use the Debug library](#how-to-use-the-debug-library)
+* [How to debug with GDB](#how-to-debug-with-gdb)
+    - [Notes about GDB debugging](#notes-about-gdb-debugging)
+    - [Notes about GDB debugging with Libultra](#notes-about-gdb-debugging-with-libultra)
+    - [Notes about GDB debugging with Libdragon](#notes-about-gdb-debugging-with-libdragon)
 * [How these libraries work](#how-these-libraries-work)
 </br>
 
@@ -106,7 +110,8 @@ void usb_sendheartbeat();
 ### How to use the Debug library
 The debug library is a basic practical implementation of the USB library. Simply include the `debug.c` and `debug.h` in your project (along with the usb library). If you intend to use the USB library in libdragon, you must uncomment `#define LIBDRAGON` in `usb.h`. </br></br>
 You must call `debug_initialize()` once before doing anything else. If you are using this library, there is no need to worry about anything regarding the USB library as this one takes care of everything for you (initialization, includes, etc...). You can edit `debug.h` to enable/disable debug mode (which makes your ROM smaller if disabled), as well as configure other aspects of the library. The library features some basic debug functions and, if you are using libultra, two threads: one that handles all USB calls, and another that catches `OS_EVENT_FAULT` events and dumps registers through USB. The library runs in its own thread, it blocks the thread that called a debug function until it is finished reading/writing to the USB. If you are using libdragon, the library will instead halt the program until it is finished reading/writing to the USB.
-Similar to the USB library, you must call `debug_pollcommands` once per game loop in order for the library to be able to read incoming data. This also applies to detecting changes to the 64Drive's button state.
+
+Similar to the USB library, you must call poll for incoming USB data. This can be done in two ways, either by manually calling `debug_pollcommands` once per game loop, or you can set the `AUTOPOLL_ENABLED` macro to `1` so that it is done automatically at an interval of `AUTOPOLL_TIME` milliseconds. Changes to the 64Drive's button state are only detected during said polling.
 <details><summary>Included functions list</summary>
 <p>
     
@@ -114,6 +119,7 @@ Similar to the USB library, you must call `debug_pollcommands` once per game loo
 /*==============================
     debug_initialize
     Initializes the debug and USB library.
+    Should be called last during game initialization.
 ==============================*/
 void debug_initialize();
 
@@ -197,6 +203,29 @@ void debug_printcommands();
 </p>
 </details>
 </br>
+
+### How to debug with GDB
+A GDB stub is provided with `debug.c`. In order to debug with GDB, the `USE_RDBTHREAD` macro in `debug.h` must be set to `1` (it is set to `0` by default), and UNFLoader must be launched with the `-g` command (for more information, check the [How to use UNFLoader](../UNFLoader/README.md#how-to-use-unfloader) section in the UNFLoader README). 
+
+The steps for connecting GDB are as follows:
+1. Start by ensuring that your version of GDB supports the `mips:4300` architecture. Default GDB usually does not, so instead you should install and use `gdb-multiarch`. You can confirm if the architecture is supported by launching GDB and calling `set architecture` to get a list of architectures.
+2. Compile your ROM with the `USE_RDBTHREAD` flag enabled (It is also highly recommended to set the `AUTOPOLL_ENABLED` flag to `1`), and feed the ELF that is generated into GDB by either launching GDB with it (`gdb-multiarch rom.elf`) or, with an already launched GDB, with the command `file rom.elf`. In order for the ELF to properly generate, your ROM must be compiled with the `-g` flag and, ideally, no optimizations (`-O0`). It's also a good idea to add `-g` to `LDFLAGS` in order to ensure your linker does not discard debugging symbols. Finally, **make sure ld does not strip the debug symbols with the `-s` flag nor with `DISCARD` in the linker script**. The outputted ELF will have the extension `elf` or `out`. You can confirm it's correct by checking if it has `.debug` section headers with readelf: `readelf -S rom.elf`.
+3. When using GDB with libultra, it's possible that the architecture is detected incorrectly. Do `set architecture mips:4300` after launching GDB or it might complain that the `remote 'g' packet reply is too long (expected 360 bytes, got 576 bytes)` during the initial handshake. If the architecture is set to `mips:4000` by default, that *should* be fine as the two architectures are synonymous in GDB.
+4. Launch UNFLoader with the `-g` flag enabled (this will enable the `-d` flag if it isn't already). When the ROM boots, it'll pause execution as soon as the code hits `debug_initialize()`. When this happens, you should get a message in UNFLoader from the ROM telling you that it is paused and waiting for GDB to attach.
+5. In GDB, call `target remote 127.0.0.1:8080`, obviously replacing the address/port with a different one if you provided one for the `-g` argument.
+6. If GDB is attached correctly, you should be able to do what you want (set breakpoints, etc...) and then resume ROM execution with `c` or `continue`.
+
+#### Notes about GDB debugging
+* Stepping into or breakpointing at functions related to the USB/debug library will probably have unintended side-effects. Please use GDB responsibly.
+* Thread specific features are unsupported.
+* Watchpoints are unsupported.
+* Overlays/Relocation is currently unsupported. I'm not even sure how to start supporting it to be honest.
+
+#### Notes about GDB debugging with Libultra
+If you are using the old SDK (as in, not using ModernSDK), you will not be able to use GDB to its full extent. The GCC that is bundled with EXEWGCC is ancient and does not support the full debugging symbols that modern GDB requires (EXEWGCC only provides DWARF v1 debugging symbols, which don't include `.debug_line`, etc...). As a result, you will only be able to do assembly level debugging (you can still place breakpoints, disassemble, step through assembly, view registers, view the backtrace, etc...). You will not be able to step through lines of C code, list local variables, etc... There might be a magic combo of makefile flags or a magic combo of GDB version which will allow for all these features, but I'll leave figuring that out as an exercise for the user. If you do figure it out, lemme know so I can add that information here!
+
+#### Notes about GDB debugging with Libdragon
+None.
 
 ### How these libraries work
 I recommend developers check out the [wiki](../../../wiki) chapters 1 and 2 to get a full understanding of the communication protocol. The debug library abstracts this information away as much as possible, so if you didn't fully understand what was in those pages it's not a big concern. A summary of the most important tidbits is provided here:

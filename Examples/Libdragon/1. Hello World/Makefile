@@ -15,23 +15,12 @@ DEBUGFILES = debug.c
 #     Don't touch below unless you know what you're doing!     #
 ################################################################
 
-ASSETS_PNG = $(wildcard assets/*.png)
-
-ASSETS_CONV = $(addprefix filesystem/,$(notdir $(ASSETS_PNG:%.png=%.sprite)))
-
-MKSPRITE_FLAGS ?= --compress 0
-
 
 ################################################################
 #                         Make Commands                        #
 ################################################################
 
-all: unflexa3.z64
-
-filesystem/%.sprite: assets/%.png
-	@mkdir -p $(dir $@)
-	@echo "    [SPRITE] $@"
-	@$(N64_MKSPRITE) $(MKSPRITE_FLAGS) -o filesystem "$<"
+all: unflexa1.z64
 
 
 ################################################################
@@ -51,14 +40,12 @@ endif
 #                          Compilation                         #
 ################################################################
 
-$(BUILD_DIR)/unflexa3.dfs: $(ASSETS_CONV)
-$(BUILD_DIR)/unflexa3.elf: $(SRC:%.c=$(BUILD_DIR)/%.o)
+$(BUILD_DIR)/unflexa1.elf: $(SRC:%.c=$(BUILD_DIR)/%.o)
 
-unflexa3.z64: N64_ROM_TITLE="UNFLEXAM3"
-unflexa3.z64: $(BUILD_DIR)/unflexa3.dfs 
+unflexa1.z64: N64_ROM_TITLE="UNFLEXAM1"
 
 clean:
-	rm -rf $(BUILD_DIR) unflexa3.n64
+	rm -rf $(BUILD_DIR) unflexa1.z64
 
 -include $(wildcard $(BUILD_DIR)/*.d)
 
